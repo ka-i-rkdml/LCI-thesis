@@ -12,7 +12,7 @@
 echo "🟢 Starting environment setup..."
 
 # =========================
-# 1️.Install WSL2 & Ubuntu (Windows only, first-time)
+# 1️.Install WSL2 & Ubuntu (first-time)
 # =========================
 if [ -z "$WSL_INTEROP" ]; then
     echo "💻 Detected Windows environment. Installing WSL2 and Ubuntu (first-time only)..."
