@@ -2,7 +2,7 @@
 # =========================================================
 # Script: compare_resistant_parental.sh
 # Purpose: Compare Resistant (R) vs Parental (P) VCFs, extract gene-specific variants and count impacts
-# Author: Ka-I Li
+# Author: Chia-I Lee
 # =========================================================
 
 # ------------------------
