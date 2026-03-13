@@ -4,13 +4,13 @@
 # Purpose: RNA-seq Variant Filtering + SnpEff Annotation
 # Author: Ka-I Li
 # Notes:
-#   - 適用 GATK 4 + SnpEff 4.3+
-#   - 分 SNP / INDEL 過濾後合併
-#   - 支援多 ALT allele 的 MLEAF 過濾
+#   - Compatible with GATK 4 + SnpEff 4.3+
+#   - Filters SNPs and INDELs separately and merges results
+#   - Supports MLEAF filtering for multiple ALT alleles
 # =========================================================
 
 # ------------------------
-# 1️⃣ 設定路徑與參數
+# 1️⃣ Set paths and parameters
 # ------------------------
 REF=~/reference/hg38_ucsc/hg38.fa
 INPUT_VCF=~/3_HNH3FDSX5_L4_genotyped.vcf.gz
@@ -20,7 +20,7 @@ MEM=10g
 mkdir -p $OUTDIR
 
 # ------------------------
-# 2️⃣ 分 SNP 與 Indel
+# 2️⃣ Separate SNPs and Indels
 # ------------------------
 gatk --java-options "-Xmx$MEM" SelectVariants \
     -R $REF \
@@ -35,8 +35,8 @@ gatk --java-options "-Xmx$MEM" SelectVariants \
     -O $OUTDIR/indels.vcf.gz
 
 # ------------------------
-# 3️⃣ SNP 過濾
-# 建議閾值: QD<2 || FS>30 || MQ<40 || MQRankSum<-12.5 || ReadPosRankSum<-8
+# 3️⃣ Filter SNPs
+# Recommended thresholds: QD<2 || FS>30 || MQ<40 || MQRankSum<-12.5 || ReadPosRankSum<-8
 # ------------------------
 gatk --java-options "-Xmx$MEM" VariantFiltration \
     -R $REF \
@@ -49,8 +49,8 @@ gatk --java-options "-Xmx$MEM" VariantFiltration \
     --filter-name "ReadPosRankSum-8" --filter-expression "vc.hasAttribute('ReadPosRankSum') && vc.getAttribute('ReadPosRankSum') < -8.0"
 
 # ------------------------
-# 4️⃣ Indel 過濾
-# 建議閾值: QD<2 || FS>200 || ReadPosRankSum<-20
+# 4️⃣ Filter Indels
+# Recommended thresholds: QD<2 || FS>200 || ReadPosRankSum<-20
 # ------------------------
 gatk --java-options "-Xmx$MEM" VariantFiltration \
     -R $REF \
@@ -61,7 +61,7 @@ gatk --java-options "-Xmx$MEM" VariantFiltration \
     --filter-name "ReadPosRankSum-20" --filter-expression "vc.hasAttribute('ReadPosRankSum') && vc.getAttribute('ReadPosRankSum') < -20.0"
 
 # ------------------------
-# 5️⃣ 合併 SNP + Indel
+# 5️⃣ Merge SNPs and Indels
 # ------------------------
 gatk MergeVcfs \
     -I $OUTDIR/snps.filtered.vcf.gz \
@@ -69,7 +69,7 @@ gatk MergeVcfs \
     -O $OUTDIR/merged.filtered.vcf.gz
 
 # ------------------------
-# 6️⃣ MLEAF 過濾 + 保留 PASS
+# 6️⃣ Filter MLEAF and retain PASS variants
 # ------------------------
 bcftools view -f PASS -i 'INFO/MLEAF[0]>=0.05 && INFO/MLEAF[1]>=0.05' \
     -Oz -o $OUTDIR/filtered.final.vcf.gz \
@@ -78,9 +78,9 @@ bcftools view -f PASS -i 'INFO/MLEAF[0]>=0.05 && INFO/MLEAF[1]>=0.05' \
 bcftools index $OUTDIR/filtered.final.vcf.gz
 
 # ------------------------
-# 7️⃣ 檢查結果
+# 7️⃣ Inspect results
 # ------------------------
-echo "Top 10 MLEAF:"
+echo "Top 10 MLEAF variants:"
 bcftools query -f '%CHROM\t%POS\t%MLEAF\n' $OUTDIR/filtered.final.vcf.gz | head
 
 # =========================================================
@@ -90,7 +90,7 @@ SNPEFF_DIR=~/snpEff
 ANN_DIR=~/ann
 mkdir -p $ANN_DIR
 
-# 假設 SnpEff 已安裝並建立 GRCh38.113 資料庫
+# Assumes SnpEff is installed and GRCh38.113 database is built
 java -Xmx12g -jar $SNPEFF_DIR/snpEff.jar -v GRCh38.113 \
     -canon \
     -no-intergenic -no-intron -no-upstream -no-downstream -no-utr \
