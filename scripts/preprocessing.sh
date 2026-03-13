@@ -49,6 +49,3 @@ gatk SplitNCigarReads \
     -O sample.split.bam
 
 samtools sort -@ 4 -m 2G --write-index -o sample.split.sorted.bam sample.split.bam
-
-# 5️⃣ (Optional) Install libgomp for GATK acceleration
-# sudo apt update && sudo apt install libgomp1
