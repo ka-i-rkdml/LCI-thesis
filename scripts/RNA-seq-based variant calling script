@@ -596,43 +596,16 @@ cp 3_HNH3FDSX5_L4_split.sorted.bam.bai /mnt/c/Users/ASUS/Documents/碩班/igv/
 #看原始vcf分布
 grep "ANN=" P.ann.vcf | cut -d'|' -f2 | sort | uniq -c | sort -nr | head
 
-##功能篩選 → R/P比較 → gene鎖定 → impact評估##
-
-#篩出功能性突變 #最終版本不先篩功能性突變了因為擔心對功能性突變的定義有漏
-FUNCTION="missense_variant|frameshift_variant|stop_gained|stop_lost|start_lost|splice_acceptor_variant|splice_donor_variant|disruptive_inframe_deletion|disruptive_inframe_insertion|inframe_insertion|inframe_deletion"
-
-# 1. 產生功能性突變位點 list
-bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%ANN\n' CriR1.ann.vcf | \
-awk -F'\t' -v pattern="$FUNCTION" '{
-    split($5,a,"|"); ann=a[2]; if(ann ~ pattern) print $1"\t"$2
-}' > CriR1_func_sites.txt
-
-# 2. 從原始 VCF 抽出功能性突變
-bgzip CriR1.ann.vcf
-# 會生成 CriR1.ann.vcf.gz
-
-tabix -p vcf CriR1.ann.vcf.gz
-
-bcftools view -R CriR1_func_sites.txt CriR1.ann.vcf.gz > CriR1.func.vcf
+##R/P比較 → gene鎖定 → impact評估##
 
 #扣掉parental
-bgzip P/R.func.vcf
-tabix -p vcf P/R.func.vcf.gz
+bgzip P/R.ann.vcf
+tabix -p vcf P/R.ann.vcf.gz
 
-
-##後來直接從此開始用新鮮的ann做
 bcftools isec \
- R.func.vcf.gz \
- P.func.vcf.gz \
+ R.ann.vcf.gz \
+ P.ann.vcf.gz \
  -p diff_RP 
-
-diff_RP/
-├── 0000.vcf  (只在R) #R-only variants
-├── 0001.vcf  (只在P)
-├── 0002.vcf  (兩邊都有，以P為主)
-├── 0003.vcf  (兩邊都有，以R為主)
-This file was produced by vcfisec.
-The command line was:   bcftools isec  -p diff_CriR1P CriR1.ann.vcf.gz P.ann.vcf.gz
 
 Using the following file names:
 diff_CriR1P/0000.vcf    for records private to  CriR1.ann.vcf.gz
@@ -640,29 +613,26 @@ diff_CriR1P/0001.vcf    for records private to  P.ann.vcf.gz
 diff_CriR1P/0002.vcf    for records from CriR1.ann.vcf.gz shared by both        CriR1.ann.vcf.gz P.ann.vcf.gz
 diff_CriR1P/0003.vcf    for records from P.ann.vcf.gz shared by both    CriR1.ann.vcf.gz P.ann.vcf.gz
 
-
+#ANN欄位第四格是gene name，抓出要抓的基因
+#只抓 R-specific 並篩選目標基因
 #要抓的基因
-GENE="MET|EGFR|KRAS|BRAF|ERBB2|ERBB3|PIK3CA"
 GENE="MET|EGFR|KRAS|BRAF|ERBB2|ERBB3|PIK3CA|AKT1|AKT2|AKT3|ALK|AR|ARAF|CDK4|CDKN2A|CHEK2|CTNNB1|ERBB4|ESR1|FGFR1|FGFR2|FGFR3|FGFR4|FLT3|GNA11|GNAQ|GNAS|HRAS|IDH1|IDH2|KIT|MAP2K1|MAP2K2|MTOR|NRAS|NTRK1|NTRK2|NTRK3|PDGFRA|PTEN|RAF1|RET|ROS1|SMO|TP53|CD274|RSPO2|RSPO3|NRG1|NUTM1"
-CTRLGENE="TP53|POLE|STK11|ROS1|JAK2"
+CTRLGENE="TP53|STK11"
 
 #可跳過
-gunzip CriR1.ann.vcf.gz  #解壓縮 #bgzip CriR1.ann.vcf(壓縮)
+gunzip CriR1.ann.vcf.gz  #解壓縮 
+bgzip CriR1.ann.vcf #壓縮
 
 grep "##INFO=<ID=ANN" CriR1.ann.vcf
 kairkdml@Chia1Lee:~/ann$ grep "##INFO=<ID=ANN" CriR1.ann.vcf
 ##INFO=<ID=ANN,Number=.,Type=String,Description="Functional annotations: 'Allele | Annotation | Annotation_Impact | Gene_Name | Gene_ID | Feature_Type | Feature_ID | Transcript_BioType | Rank | HGVS.c | HGVS.p | cDNA.pos / cDNA.length | CDS.pos / CDS.length | AA.pos / AA.length | Distance | ERRORS / WARNINGS / INFO' ">
 
-#檢查0001.vcf中有哪些基因
+#檢查0000.vcf中有哪些基因
 bcftools query -f '%ANN\n' diff_TepR1P/0000.vcf | awk -F'|' '{print $4}' | sort | uniq
 bcftools query -f '%ANN\n' diff_TepR1P/0000.vcf | awk -F'|' '{print $4}' | sort | uniq -c | sort -nr
 bcftools query -f '%ANN\n' diff_TepR1P/0000.vcf | \
 awk -F'|' -v genes="$GENE" '{if($4 ~ genes) print $4}' | sort | uniq
 
-
-#ANN欄位第四格是gene name，抓出要抓的基因
-# 只抓 R-specific 並篩選目標基因
-GENE="MET|EGFR|KRAS|BRAF|ERBB2|ERBB3|PIK3CA"
 
 # 篩選基因，不管 Impact (所有目標基因的R-only變異)
 bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/ANN\n' diff_CriR1P/0000.vcf \
@@ -702,5 +672,3 @@ bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/ANN\n' diff_CriR1P/0000.vcf \
 }
 END{print count}
 '
-
-No recurrent mutations were detected in MET, EGFR, KRAS, BRAF, ERBB2, ERBB3, or PIK3CA in resistant clones compared with parental cells.
