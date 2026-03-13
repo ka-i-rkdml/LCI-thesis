@@ -1,33 +1,48 @@
-# RNA-seq Variant Calling Pipeline
-
-Code accompanying the Master's thesis of Ka-I Li.
+# LCI-thesis: RNA-seq Variant Analysis Pipeline
 
 ## Overview
+This repository contains scripts and workflows for RNA-seq variant calling, filtering, annotation, and resistant vs parental comparison.  
+The pipeline is based on GATK 4 + SnpEff 4.3+.
 
-This repository contains scripts used for RNA-seq–based variant calling and downstream variant analysis.
+## Repository Structure
+env_setup/ # Setup software & environment  
+preprocessing/ # BAM/FASTQ preprocessing  
+variant_calling/ # Variant calling and filtering  
+annotation/ # snpEff annotation  
+comparison/ # Resistant vs Parental comparison  
+scripts/ # Utility scripts  
+docs/ # Flowcharts, figures, notes  
 
-Variant calling was performed using GATK following the Best Practices workflow for RNA-seq short variant discovery:  
-https://gatk.broadinstitute.org/hc/en-us/articles/360035531192-RNAseq-short-variant-discovery-SNPs-Indels
+## Pipeline Workflow
 
-## Environment
+1. **Setup Environment**
+</>Bash
+bash env_setup/install_tools.sh
 
-Analysis was performed on **Ubuntu 24.04.2 LTS (WSL2 on Windows)** using:
+2. **Preprocessing BAM/FASTQ**
+bash preprocessing/preprocess_all.sh
 
-- Java 17.0.17  
-- GATK 4.6.2.0  
-- bcftools 1.19  
-- samtools 1.19.2  
-- SnpEff 4.3t  
+3. **Variant Calling & Filtering**
+</>Bash
+bash variant_calling/run_variant_calling.sh
 
-## Variant Selection
+4. **Annotation with SnpEff**
+</>Bash
+bash annotation/run_annotation.sh
 
-Variants unique to resistant sublines were evaluated. Functional variants were defined as variants annotated with **HIGH** or **MODERATE** predicted impact. Final variants were restricted to biallelic sites with total depth ≥15 and ≥5 supporting reads for the alternative allele.
+5. **Resistant vs Parental Comparison**
+</>Bash
+bash comparison/run_comparison.sh
 
-## Code
+## Usage Notes
+- Recommended to run in WSL2 Ubuntu or Linux environment
+- Requires Java >= 11 for GATK and SnpEff
+- Adjust memory (-Xmx) according to available RAM
+- Entry scripts assume input files are under ~/variants and ~/ann
 
-RNA-seq variant calling scripts are available in the repository under:
+## License
 
-`scripts/RNA-seq-gatk-variant-calling/`
+MIT License. See `LICENSE` for details.
 
 ## Reproducibility
 
@@ -38,7 +53,3 @@ All commands and parameters used in the analysis are documented in the provided 
 If you use this code, please cite:
 
 Lee, C.-I. (2026). *LCI-thesis*. GitHub repository.
-
-## License
-
-MIT License. See `LICENSE` for details.
