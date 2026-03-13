@@ -1,1 +1,706 @@
+#Platform: WSL&Ubuntu https://bayareanotes.com/wsl-installation/
 
+#調整WSL主機使用RAM
+#在powershell
+notepad $env:USERPROFILE\.wslconfig
+#記事本
+[wsl2]
+memory=12GB       # WSL 最大可用 RAM
+processors=10     # WSL 可用 CPU 核心
+swap=6GB          # WSL 超出 RAM 時可使用 swap
+swapFile=C:\\wsl-swap.vhdx    #指定以固定swap位置
+localhostForwarding=true    #Windows 可以直接連 Linux 服務，方便跑分析或 server
+
+wsl --shutdown
+free -h #可看到Mem: 12Gi
+
+-Xmx #Java JVM的最大記憶體參數
+-XX:ParallelGCThreads #此參數控制同時用幾個CPU做JVM垃圾(GC)回收，因為垃圾會暫時阻塞程式
+
+sudo apt install tmux
+tmux new -s bio    #防斷線
+
+Ctrl + B → D    #可離開畫面
+tmux attach -t bio    #回到分析畫面
+#即使關terminal也不中斷分析
+
+
+#占空間清除指令
+# 刪掉中間 BAM
+rm -f *.sort.bam.bai* *.sort.bam* *_rg.bam* *_dedup.bam* *_split.bam *_split.bai *_split.sorted.bam *_split.sorted.bam.bai
+
+# 刪掉中間 VCF
+rm -f *_raw.vcf.gz* *_genotyped.vcf.gz* snps* indels* merged*
+
+# 刪掉 MarkDuplicates metrics、BQSR table、snpEff zip
+rm -f *_metrics.txt *_recal_data.table
+
+
+
+#清理空間
+
+# 清理 apt 套件管理器的快取與不需要的套件
+sudo apt-get clean
+sudo apt-get autoclean
+sudo apt-get autoremove
+
+# 刪除 Node.js 的套件快取
+npm cache clean --force
+yarn cache clean
+
+# 刪除 Rust 的套件快取
+rm -rf ~/.cargo/registry/cache/*
+
+# 你可以從 ~/.cache/ 目錄下找到許多可能已經不需要的快取檔案！
+
+#從WSL標記未使用區塊
+#在進行檔案清理之後，建議執行 fstrim 來標記未使用的區塊，此指令會通知底層虛擬化層哪些區塊不再使用。
+sudo fstrim -v /
+
+#WSL2 vhdx 壓縮保留重要檔案
+###進入powershell###
+wsl --list --verbose    #確認WSL實體狀態，如果不是stopped要先stopped
+wsl --shutdown   # 先關閉 WSL2
+
+#尋找wsl所在途徑
+cd "$env:LOCALAPPDATA\WSL"
+dir
+    目錄: C:\Users\ASUS\AppData\Local\WSL
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d-----       2026/1/29  下午 12:35                {eb4b50ee-559d-4b58-b89c-ebc86eb6238b}
+
+cd "{eb4b50ee-559d-4b58-b89c-ebc86eb6238b}"
+dir
+    目錄: C:\Users\ASUS\AppData\Local\WSL\{eb4b50ee-559d-4b58-b89c-ebc86eb6238b}
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a----        2026/2/3  下午 12:55   117674344448 ext4.vhdx
+-a----       2026/1/29  下午 12:35          37207 shortcut.ico
+#看到ext4.vhdx   109GB (目前大小)
+
+diskpart
+select vdisk file="C:\Users\ASUS\AppData\Local\WSL\{eb4b50ee-559d-4b58-b89c-ebc86eb6238b}\ext4.vhdx"    #指定磁碟
+attach vdisk readonly    #以唯讀模式掛載避免資料損壞
+compact vdisk    #壓縮
+detach vdisk    #卸載磁碟
+exit    #退出diskpart
+
+
+
+
+
+| 工具 / 指令                 | Option / Flag    | 全名 / 意思              | 說明 / 用途                      | 範例                                                     |
+| ----------------------- | ---------------- | -------------------- | ---------------------------- | ------------------------------------------------------ |
+| `rm`                    | `-f`             | force                | 強制刪除檔案，不跳錯誤訊息、不詢問            | `rm -f file.txt`                                       |
+| `rm`                    | `-r`             | recursive            | 遞迴刪除資料夾及其內容                  | `rm -rf folder/`                                       |
+| `ls`                    | `-l`             | long                 | 詳細列表顯示檔案資訊                   | `ls -l`                                                |
+| `ls`                    | `-h`             | human-readable       | 將檔案大小用 KB/MB/GB 顯示           | `ls -lh`                                               |
+| `du`                    | `-s`             | summarize            | 只顯示總計大小                      | `du -sh folder/`                                       |
+| `du`                    | `-h`             | human-readable       | 可讀單位顯示檔案大小                   | `du -sh folder/`                                       |
+| `samtools sort`         | `-@`             | threads              | 指定 CPU 核心數                   | `samtools sort -@ 4 -o sorted.bam input.bam`           |
+| `samtools sort`         | `-m`             | memory per thread    | 每個線程可用 RAM                   | `samtools sort -m 2G`                                  |
+| `samtools index`        | （無）              | （無）                  | 產生 BAM/CRAM 的 index          | `samtools index sorted.bam`                            |
+| `gatk`                  | `--java-options` | Java 虛擬機參數           | 設定 JVM 記憶體、GC 線程等            | `gatk --java-options "-Xmx6g -XX:ParallelGCThreads=3"` |
+| `gatk HaplotypeCaller`  | `-R`             | reference            | 參考基因組 FASTA                  | `-R hg38.fa`                                           |
+| `gatk HaplotypeCaller`  | `-I`             | input BAM            | 要做 variant call 的 BAM        | `-I sample.bam`                                        |
+| `gatk HaplotypeCaller`  | `-O`             | output VCF           | 輸出檔案名稱                       | `-O sample.vcf.gz`                                     |
+| `gatk SplitNCigarReads` | （無）              | （無）                  | 拆 exon-exon junction 的 CIGAR | 只能用在 RNA-seq BAM                                       |
+| `bcftools view`         | `-h`             | header               | 只看 VCF header                | `bcftools view -h sample.vcf.gz`                       |
+| `bcftools view`         | `-i`             | include / expression | 過濾符合條件的 variant              | `bcftools view -i 'INFO/MLEAF[0]>=0.05'`               |
+| `bcftools view`         | `-f`             | filter               | 過濾 PASS / 其他標記               | `bcftools view -f PASS`                                |
+| `gzip` / `gunzip`       | `-d`             | decompress           | 解壓縮                          | `gunzip file.gz`                                       |
+| `wget`                  | `-c`             | continue             | 斷點續傳                         | `wget -c URL`                                          |
+
+
+
+
+
+#1️⃣ WSL & Ubuntu 環境安裝 (第二次後可跳過)
+
+wsl --install                 # 安裝 WSL
+###重新啟動###
+wsl --install -d Ubuntu       # 安裝 Ubuntu 發行版
+wsl --list                    # 檢查安裝狀態
+wsl -d Ubuntu                 # 進入 Ubuntu
+
+#CtrlC可中斷當前命令
+
+#user account: kairkdml
+#password:Chia1lee
+
+
+
+
+
+#2️⃣ Linux 系統與套件更新 (第二次後可跳過)
+
+sudo apt update && sudo apt upgrade                                 #更新Linux內的系統
+sudo apt install -y samtools bcftools openjdk-11-jdk wget           #裝samtools/bcftools/onpenJDK
+sudo apt install python3 python-is-python3 openjdk-17-jdk -y        #確保GATK能找到Python跟對的JAVA版本
+
+#RNAseq short variant discovery (SNPs+Indels) https://gatk.broadinstitute.org/hc/en-us/articles/360035531192-RNAseq-short-variant-discovery-SNPs-Indels
+#gatk-rnaseq-germline-snps-indels https://github.com/gatk-workflows/gatk4-rnaseq-germline-snps-indels/blob/master/README.md
+
+
+
+
+
+#3️⃣ GATK 安裝 (第二次後可跳過)
+
+###下載GATK.zip https://github.com/broadinstitute/gatk/releases###    #gatk-4.6.2.0
+cd /mnt/c/Users/ASUS/Downloads             #在WSL上指向Downloads這個資料夾
+###手動去Downloads資料夾解壓縮###
+cd gatk-4.6.2.0                            #進入到解完壓縮的資料夾
+export PATH=$PWD:$PATH                     #暫時加入PATH讓GATK可在任何位置執行
+echo 'export PATH=/mnt/c/Users/ASUS/Downloads/gatk-4.6.2.0:$PATH' >> ~/.bashrc
+source ~/.bashrc                           #永久加入gatk指定為PATH，每次開WSL都可以用的意思
+gatk --help                                #出現GATK的幫助資訊為成功
+
+
+
+
+#4️⃣ 下載參考基因組 (第二次後可跳過)
+
+#下載參考基因組 FASTA（hg38 / GRCh38, Ensembl release 113）
+wget -c http://ftp.ensembl.org/pub/release-113/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz  #載DNA 全基因組 FASTA（包含所有染色體與 scaffolds），fasta hg38,ensembl release113
+wget -c http://ftp.ensembl.org/pub/release-113/gtf/homo_sapiens/Homo_sapiens.GRCh38.113.gtf.gz #下載基因註釋 GTF（對應到同樣的 Ensembl release 113）
+
+###手動解壓縮FASTA跟GTP###
+
+#產生索引與字典
+samtools faidx Homo_sapiens.GRCh38.dna.primary_assembly.fa         #用 samtools 產生 FASTA index (.fai)
+gatk CreateSequenceDictionary -R Homo_sapiens.GRCh38.dna.primary_assembly.fa -O Homo_sapiens.GRCh38.dna.primary_assembly.dict         #用 GATK / Picard 產生字典檔（.dict）
+
+#建立reference資料夾
+mkdir -p ~/reference
+cd ~/reference
+mkdir hg38_ensembl
+mkdir hg38_ucsc
+
+#在WSL主機下的reference/hg38_ensembl載hg38的fasta (1,2,3,X,Y,MT)
+wget -c https://ftp.ensembl.org/pub/release-113/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz #DNA primary assembly（GATK 可用）
+ls -lh #檢查
+gunzip Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz #解壓縮
+mv Homo_sapiens.GRCh38.dna.primary_assembly.fa hg38.fa #把名字換成hg38.fa
+ls -lh hg38.fa #檢查
+samtools faidx hg38.fa #建立 FASTA index（.fai）
+ls -lh hg38.fa* #檢查
+gatk CreateSequenceDictionary \
+    -R hg38.fa \
+    -O hg38.dict #建立 GATK 用的 sequence dictionary（.dict）
+ls -lh #應該要可以看到三個檔案
+
+#在WSL主機下的reference/hg38_ucsc載hg38的fasta (chr1, chr2....)
+wget -c https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.gz
+gunzip hg38.fa.gz
+samtools faidx hg38.fa
+gatk CreateSequenceDictionary -R hg38.fa -O hg38.dict
+grep "^>" hg38.fa | head
+
+##可以用來分辨reference現在用的hg38.fa是哪種contig
+head -n 5 hg38.fa
+#>chr:UCSC
+#>1: Ensembl
+##分辨.bam裡面的contig
+samtools view -H ~/3_HNH3FDSX5_L4_dedup.bam | grep "^@SQ" | head
+
+
+
+
+
+#5️⃣ BAM 檔前處理 (第二次開始從這裡開始~)
+
+#已有材料 Partek裡的STAR完的BAM&BAI, reference genome fasta
+
+#移到WSL本地加快速度
+mv "/mnt/c/Users/ASUS/Documents/碩班/EXP/15 NGS/3_HNH3FDSX5_L4.bam" ~/
+cd ~
+
+#排序 BAM + 建立 index
+samtools sort \
+    -@ 4 \                         # 使用 4 個 CPU 線程
+    -m 2G \                        # 每個線程分配 2GB RAM
+    -T /tmp/17_HNH3FDSX5_sort \    # 暫存檔位置
+    --write-index \                 # 排序完成後自動生成 .bai 索引
+    -o 17_HNH3FDSX5_L4.sort.bam \  # 輸出排序後 BAM
+    17_HNH3FDSX5_L4.bam            # 輸入 BAM
+
+
+
+#加入Read Group AddOrReplaceReadGroups 
+#填入sample/library/platform等information，GATK需要RG訊息區分sample/library/platform
+gatk AddOrReplaceReadGroups \
+    -I ~/3_HNH3FDSX5_L4_sort.bam \
+    -O ~/3_HNH3FDSX5_L4_rg.bam \
+    -RGID 3_HNH3FDSX5_L4 -RGLB H1993_lib -RGPL ILLUMINA -RGPU 3_HNH3FDSX5_L4 -RGSM P 
+samtools view -H 3_HNH3FDSX5_L4_rg.bam | grep '@RG'     #檢查Read Group
+
+
+
+#MarkDuplicates 
+#去除PCR重複
+gatk MarkDuplicates  --java-options "-Xmx8g -XX:ParallelGCThreads=4" -I ~/3_HNH3FDSX5_L4_rg.bam  -O ~/3_HNH3FDSX5_L4_dedup.bam -M ~/3_HNH3FDSX5_L4_metrics.txt
+samtools index 3_HNH3FDSX5_L4_dedup.bam
+less ~/3_HNH3FDSX5_L4_metrics.txt #檢查
+
+#| 欄位                  | 說明                       |
+#| ------------------- | ------------------------ |
+#| LIBRARY             | 標示哪個 library             |
+#| UNMAPPED_READS      | 沒對到 reference 的 read 數量  |
+#| UNPAIRED_READS      | 單端 read 數量               |
+#| READ_PAIRS          | 總 read pairs             |
+#| UNMARKED_READS      | 標記 duplicate 之前的 read 數量 |
+#| DUPLICATE_READS     | 被標記為 duplicate 的 read 數量 |
+#| PERCENT_DUPLICATION | duplicate 百分比 → 最重要指標    |  <5-10%是一般正常RNA-seq library
+
+
+
+#SplitNCigarReads 
+#RNA-seq reads可能跨exon，產生CIGAR中有N，HaplotypeCaller要先拆，這步很久
+gatk SplitNCigarReads --java-options "-Xmx6g -XX:ParallelGCThreads=3" -R ~/reference/hg38_ucsc/hg38.fa -I ~/3_HNH3FDSX5_L4_dedup.bam -O ~/3_HNH3FDSX5_L4_split.bam
+samtools sort -@ 4 -m 2G --write-index -o 3_HNH3FDSX5_L4_split.sorted.bam 3_HNH3FDSX5_L4_split.bam
+
+
+
+
+#6️⃣ BQSR（Base Quality Score Recalibration）
+
+#下載dbSNP known sites (UCSC/chr ver., hg38) (第二次之後可跳過)
+#for BQSR (Base Quality Score Recalibration)
+cd ~/reference
+wget http://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b151_GRCh38p7/VCF/GATK/00-All.vcf.gz
+wget http://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b151_GRCh38p7/VCF/GATK/00-All.vcf.gz.tbi
+bcftools index -f 00-All.vcf.gz
+
+#檢查資料頭尾是否完整
+bcftools view -h ~/reference/00-All.vcf.gz | head
+####fileformat=VCFv4.2
+##dbSNP_BUILD_ID=151
+##reference=GRCh38
+bcftools view ~/reference/00-All.vcf.gz | tail
+###看到變異資料###
+
+#檢查染色體格式 #要轉
+samtools view -H ~/3_HNH3FDSX5_L4_split.sorted.bam | grep "@SQ" | head
+bcftools view -h 00-All.vcf.gz | grep contig | head
+#看到SN:chr1是chr版，看到SN:1是no-chr版，不一致的話要轉
+
+nano chr_map.txt #建染色體對照表檔案 (第二次之後可跳過)
+1   chr1
+2   chr2
+3   chr3
+4   chr4
+5   chr5
+6   chr6
+7   chr7
+8   chr8
+9   chr9
+10  chr10
+11  chr11
+12  chr12
+13  chr13
+14  chr14
+15  chr15
+16  chr16
+17  chr17
+18  chr18
+19  chr19
+20  chr20
+21  chr21
+22  chr22
+X   chrX
+Y   chrY
+MT  chrM
+#存檔：Ctrl+O → Enter → Ctrl+X
+
+
+
+#轉換染色體格式
+bcftools annotate \
+  --rename-chrs chr_map.txt \
+  00-All.vcf.gz \
+  -Oz -o 00-All.chr.vcf.gz
+bcftools index -f 00-All.chr.vcf.gz
+tabix -p vcf 00-All.chr.vcf.gz #也可用tabix產生.tbi
+bcftools view -h 00-All.chr.vcf.gz | grep contig | head
+##contig=<ID=chr1>
+##contig=<ID=chr2>
+...
+
+
+
+#Base Quality Score Recalibration (BQSR)
+#修正測序品質偏差，提升變異檢測精確度
+gatk --java-options "-Xmx10g -XX:ParallelGCThreads=8" BaseRecalibrator -I ~/3_HNH3FDSX5_L4_split.sorted.bam -R ~/reference/hg38_ucsc/hg38.fa  --known-sites ~/reference/00-All.chr.vcf.gz -O ~/3_HNH3FDSX5_L4_recal_data.table
+gatk --java-options "-Xmx8g -XX:ParallelGCThreads=6" ApplyBQSR -R ~/reference/hg38_ucsc/hg38.fa -I ~/3_HNH3FDSX5_L4_split.sorted.bam --bqsr-recal-file ~/3_HNH3FDSX5_L4_recal_data.table -O ~/3_HNH3FDSX5_L4_BQSR.bam
+samtools index 3_HNH3FDSX5_L4_BQSR.bam
+
+
+#裝libgomp加速GATK (第二次之後不用)
+sudo apt update
+sudo apt install libgomp1
+
+
+
+
+
+#7️⃣ Variant Calling (HaplotypeCaller)
+
+screen -S gatk #先貼這個然後gatk haplotypecaller一次跑
+screen -r gatk #中斷的時候可救電腦
+
+
+gatk --java-options "-Xmx10g -XX:ParallelGCThreads=8" HaplotypeCaller -R ~/reference/hg38_ucsc/hg38.fa -I ~/3_HNH3FDSX5_L4_BQSR.bam -O ~/3_HNH3FDSX5_L4_raw.vcf.gz --dont-use-soft-clipped-bases true --standard-min-confidence-threshold-for-calling 20  --min-base-quality-score 20 -ERC GVCF -native-pair-hmm-threads 8
+#-ERC GVCF → 生成 GVCF，可後續做 multi-sample joint calling
+#--dont-use-soft-clipped-bases true ⭐⭐⭐，👉RNA-seq 必開，因為exon–exon junction 會產生 soft-clip，不關會產生一堆假變異
+#--standard-min-confidence-threshold-for-calling 20，預設值，腫瘤 RNA-seq 很合理，不用改
+#-ERC GVCF， GVCF檔 (genomic VCF)，不只記變異，沒變異的地方也會記，算是半成品草稿，保留不確定資訊如likelihood, confidence, genotype機率，定位為中繼格式
+
+
+
+#GenotypeGVCF>>>VCF
+#正式判定基因型+補annotation(QD, FS...)
+gatk --java-options "-Xmx8g -XX:ParallelGCThreads=6" GenotypeGVCFs \
+  -R ~/reference/hg38_ucsc/hg38.fa \
+  -V ~/3_HNH3FDSX5_L4_raw.vcf.gz \
+  -O ~/3_HNH3FDSX5_L4_genotyped.vcf.gz
+
+
+
+
+
+#8️⃣ Variant Filtering
+
+#確認vcf有的欄位
+bcftools view -h 3_HNH3FDSX5_L4_genotyped.vcf.gz | grep INFO
+##應該會看到QD,FS,SOR,MQ,DP
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes, for each ALT allele, in the same order as listed">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency, for each ALT allele, in the same order as listed">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=BaseQRankSum,Number=1,Type=Float,Description="Z-score from Wilcoxon rank sum test of Alt Vs. Ref base qualities">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth; some reads may have been filtered">
+##INFO=<ID=END,Number=1,Type=Integer,Description="Stop position of the interval">
+##INFO=<ID=ExcessHet,Number=1,Type=Float,Description="Phred-scaled p-value for exact test of excess heterozygosity">
+##INFO=<ID=FS,Number=1,Type=Float,Description="Phred-scaled p-value using Fisher's exact test to detect strand bias">
+##INFO=<ID=InbreedingCoeff,Number=1,Type=Float,Description="Inbreeding coefficient as estimated from the genotype likelihoods per-sample when compared against the Hardy-Weinberg expectation">
+##INFO=<ID=MLEAC,Number=A,Type=Integer,Description="Maximum likelihood expectation (MLE) for the allele counts (not necessarily the same as the AC), for each ALT allele, in the same order as listed">
+##INFO=<ID=MLEAF,Number=A,Type=Float,Description="Maximum likelihood expectation (MLE) for the allele frequency (not necessarily the same as the AF), for each ALT allele, in the same order as listed">
+##INFO=<ID=MQ,Number=1,Type=Float,Description="RMS Mapping Quality">
+##INFO=<ID=MQRankSum,Number=1,Type=Float,Description="Z-score From Wilcoxon rank sum test of Alt vs. Ref read mapping qualities">
+##INFO=<ID=QD,Number=1,Type=Float,Description="Variant Confidence/Quality by Depth">
+##INFO=<ID=RAW_MQandDP,Number=2,Type=Integer,Description="Raw data (sum of squared MQ and total depth) for improved RMS Mapping Quality calculation. Incompatible with deprecated RAW_MQ formulation.">
+##INFO=<ID=ReadPosRankSum,Number=1,Type=Float,Description="Z-score from Wilcoxon rank sum test of Alt vs. Ref read position bias">
+##INFO=<ID=SOR,Number=1,Type=Float,Description="Symmetric Odds Ratio of 2x2 contingency table to detect strand bias">
+
+
+# 設定路徑
+REF=~/reference/hg38_ucsc/hg38.fa
+INPUT_VCF=~/3_HNH3FDSX5_L4_genotyped.vcf.gz
+OUTDIR=~/
+MEM=10g
+
+##縮寫定義
+#QD(Quality/Depth)=QUAL/DP 變異可信度/覆蓋深度
+#FS(Fisher Strand Bias) 正負股reads分布是否不均
+#MQ(Mapping Quality) Reads對到reference的可信度平均
+#MQRankSum(Mapping Quality Rank Sum Test) 有變異的reads比較沒變異的reads的MQ，所以如果只有爛mapping的reads才支持變異就很糟，負值為alt reads較差
+#ReadPosRankSum(Read Position Rank Sum) 變異出現在read的哪裡，如果都出現在read末端的話很可以甚至很糟
+
+########################################
+# 1️⃣ 分 SNP 與 Indel
+########################################
+gatk --java-options "-Xmx$MEM" SelectVariants \
+  -R $REF \
+  -V $INPUT_VCF \
+  -select-type SNP \
+  -O $OUTDIR/snps.vcf.gz
+
+gatk --java-options "-Xmx$MEM" SelectVariants \
+  -R $REF \
+  -V $INPUT_VCF \
+  -select-type INDEL \
+  -O $OUTDIR/indels.vcf.gz
+
+########################################
+# 2️⃣ SNP 過濾
+# 建議閾值: QD<2 || FS>30 || MQ<40 || MQRankSum<-12.5 || ReadPosRankSum<-8
+########################################
+gatk --java-options "-Xmx$MEM" VariantFiltration \
+  -R $REF \
+  -V $OUTDIR/snps.vcf.gz \
+  -O $OUTDIR/snps.filtered.vcf.gz \
+  --filter-name "QD2" --filter-expression "vc.hasAttribute('QD') && vc.getAttribute('QD') < 2.0" \
+  --filter-name "FS30" --filter-expression "vc.hasAttribute('FS') && vc.getAttribute('FS') > 30.0" \
+  --filter-name "MQ40" --filter-expression "vc.hasAttribute('MQ') && vc.getAttribute('MQ') < 40.0" \
+  --filter-name "MQRankSum-12.5" --filter-expression "vc.hasAttribute('MQRankSum') && vc.getAttribute('MQRankSum') < -12.5" \
+  --filter-name "ReadPosRankSum-8" --filter-expression "vc.hasAttribute('ReadPosRankSum') && vc.getAttribute('ReadPosRankSum') < -8.0"
+
+########################################
+# 3️⃣ Indel 過濾
+# 建議閾值: QD<2 || FS>200 || ReadPosRankSum<-20
+########################################
+gatk --java-options "-Xmx$MEM" VariantFiltration \
+  -R $REF \
+  -V $OUTDIR/indels.vcf.gz \
+  -O $OUTDIR/indels.filtered.vcf.gz \
+  --filter-name "QD2" --filter-expression "vc.hasAttribute('QD') && vc.getAttribute('QD') < 2.0" \
+  --filter-name "FS200" --filter-expression "vc.hasAttribute('FS') && vc.getAttribute('FS') > 200.0" \
+  --filter-name "ReadPosRankSum-20" --filter-expression "vc.hasAttribute('ReadPosRankSum') && vc.getAttribute('ReadPosRankSum') < -20.0"
+
+########################################
+# 4️⃣ 合併 SNP + Indel
+########################################
+gatk MergeVcfs \
+  -I $OUTDIR/snps.filtered.vcf.gz \
+  -I $OUTDIR/indels.filtered.vcf.gz \
+  -O $OUTDIR/merged.filtered.vcf.gz
+
+########################################
+# 5️⃣ MLEAF 過濾 + 保留 PASS
+# 保留所有 ALT allele MLEAF >=0.05，可改為任一 allele >=0.05 用 ||
+########################################
+bcftools view -f PASS -i 'INFO/MLEAF[0]>=0.05 && INFO/MLEAF[1]>=0.05' \
+  -Oz -o $OUTDIR/filtered.final.vcf.gz \
+  $OUTDIR/merged.filtered.vcf.gz
+
+# 建立 index
+bcftools index $OUTDIR/filtered.final.vcf.gz
+
+########################################
+# 6️⃣ 檢查結果
+########################################
+bcftools query -f '%CHROM\t%POS\t%MLEAF\n' $OUTDIR/filtered.final.vcf.gz | head
+
+#SNP/Indel 分開過濾，閾值符合推薦。
+#只保留 PASS variant。
+#MLEAF 過濾整合在一次 bcftools 命令，簡化流程。
+#支援多 ALT allele，可輕鬆改 [0] [1] [2] ... 或改 || 條件。
+
+#Annotation 
+# ===============================
+# Annotation with SnpEff
+# ===============================
+
+# 0️⃣ 前置作業: 確認環境
+# 確認你在家目錄或方便的資料夾
+cd ~
+mkdir -p snpEff
+cd snpEff
+
+
+# 1️⃣ 下載 SnpEff
+wget https://downloads.sourceforge.net/project/snpeff/snpEff_latest_core.zip
+unzip snpEff_latest_core.zip
+cd snpEff
+#此目錄結構應有snpEff.jar  SnpSift.jar  examples/  scripts/  snpEff.config
+
+
+# 2️⃣ 手動建立 GRCh38 資料庫資料夾
+cd ~/snpEff/data
+mkdir -p GRCh38.113/sequences
+mkdir -p GRCh38.113/genes
+
+#此時目錄結構為
+data/
+└── GRCh38.109/
+    ├── genes/
+    └── sequences/
+
+
+# 3️⃣ 下載必要檔案與解壓縮
+# 下載 GTF + 解壓縮
+cd ~/snpEff/data/GRCh38.113/genes
+wget -c http://ftp.ensembl.org/pub/release-113/gtf/homo_sapiens/Homo_sapiens.GRCh38.113.gtf.gz
+gunzip Homo_sapiens.GRCh38.113.gtf.gz
+mv Homo_sapiens.GRCh38.dna.primary_assembly.fa sequences.fa
+
+# 下載 DNA FASTA (~840MB) + 解壓縮
+cd ~/snpEff/data/GRCh38.113/sequences
+wget -c http://ftp.ensembl.org/pub/release-113/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
+gunzip Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
+mv Homo_sapiens.GRCh38.113.gtf genes.gtf
+
+#資料結構
+~/snpEff/
+ ├─ snpEff.jar
+ ├─ snpEff.config   ← 重要
+ └─ data/
+     └─ GRCh38.113/
+         ├─ genes/
+         │   └─ genes.gtf
+         └─ sequences/
+             └─ sequences.fa
+
+#把genes.gtf.gz跟sequencce.fa直接拉到GRCh38.113下
+cd ~/snpEff/data/GRCh38.113
+mv genes/genes.gtf ./
+mv sequences/sequences.fa ./
+rm -r genes sequences
+
+# 4️⃣ 設定snpEff.config
+#在 ~/snpEff/snpEff.config 最底新增：
+GRCh38.113.genome : Homo_sapiens_GRCh38.113
+GRCh38.113.gtf : data/GRCh38.113/genes/genes.gtf
+GRCh38.113.fa  : data/GRCh38.113/sequences/sequences.fa
+
+echo "GRCh38.113.genome : Homo_sapiens_GRCh38.113" >> snpEff.config
+echo "GRCh38.113.gtf : data/GRCh38.113/genes/genes.gtf" >> snpEff.config
+echo "GRCh38.113.fa  : data/GRCh38.113/sequences/sequences.fa" >> snpEff.config
+tail ~/snpEff/snpEff.config
+
+
+# 5️⃣ 建立SnpEff資料庫
+cd ~/snpEff
+java -Xmx12g -jar snpEff.jar build -gtf22 -v GRCh38.113
+#-gtf22 → 使用 GTF 轉錄本
+#-v → verbose，看到處理進度
+#正常輸出：會看到類似 10000 .... 20000 .... 等進度，代表正在 build
+#自動產生snpEff.genes.txt, snpEff.contigs, snpEffVersion.txt在~/snpEff/data/GRCh38.109/
+
+
+# 6️⃣ 對你的 resistant-specific VCF 做 annotation #做annotation的時候需要在snpEff安裝處
+# 假設你的 VCF 在 ~/snpEff/resistant_specific.vcf
+java -Xmx10g -jar snpEff.jar -v GRCh38.113 \
+    -canon \
+    -no-intergenic -no-intron -no-upstream -no-downstream -no-utr \
+    -lof \
+     ~/input.vcf > ~/ann/input.ann.vcf
+#input.vcf → 你的 RNA-seq VCF；input.ann.vcf → SnpEff 加上註解的結果
+#-canon → 只用 canonical transcript
+#-no-intergenic -no-intron -no-upstream -no-downstream -no-utr → 只保留 coding/exonic
+#-lof → 標記 LOF/NMD
+
+
+# 7️⃣ 檢查結果
+# 1. 確認檔案大小與內容
+ls -lh ~/ann/input.ann.vcf
+head ~/ann/input.ann.vcf
+#看 EFF= 欄位，裡面會包含變異型態（missense, synonymous, stop_gained…）
+#LOF/NMD 註解會加在 EFF= 或 LOF= 欄位
+
+# 2. 用snpEff_summary.html查看註解統計
+打開~/snpEff/snpEff_summary.html
+
+
+#IGV查看
+#IGV 需要的是 排序後的 BAM + 對應的 BAI
+#用BQSR.bam看
+# 複製 BAM 和 BAI 到 Windows IGV 資料夾
+cp 3_HNH3FDSX5_L4_split.sorted.bam /mnt/c/Users/ASUS/Documents/碩班/igv/
+cp 3_HNH3FDSX5_L4_split.sorted.bam.bai /mnt/c/Users/ASUS/Documents/碩班/igv/
+
+
+#整合比較
+
+#看原始vcf分布
+grep "ANN=" P.ann.vcf | cut -d'|' -f2 | sort | uniq -c | sort -nr | head
+
+##功能篩選 → R/P比較 → gene鎖定 → impact評估##
+
+#篩出功能性突變 #最終版本不先篩功能性突變了因為擔心對功能性突變的定義有漏
+FUNCTION="missense_variant|frameshift_variant|stop_gained|stop_lost|start_lost|splice_acceptor_variant|splice_donor_variant|disruptive_inframe_deletion|disruptive_inframe_insertion|inframe_insertion|inframe_deletion"
+
+# 1. 產生功能性突變位點 list
+bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%ANN\n' CriR1.ann.vcf | \
+awk -F'\t' -v pattern="$FUNCTION" '{
+    split($5,a,"|"); ann=a[2]; if(ann ~ pattern) print $1"\t"$2
+}' > CriR1_func_sites.txt
+
+# 2. 從原始 VCF 抽出功能性突變
+bgzip CriR1.ann.vcf
+# 會生成 CriR1.ann.vcf.gz
+
+tabix -p vcf CriR1.ann.vcf.gz
+
+bcftools view -R CriR1_func_sites.txt CriR1.ann.vcf.gz > CriR1.func.vcf
+
+#扣掉parental
+bgzip P/R.func.vcf
+tabix -p vcf P/R.func.vcf.gz
+
+
+##後來直接從此開始用新鮮的ann做
+bcftools isec \
+ R.func.vcf.gz \
+ P.func.vcf.gz \
+ -p diff_RP 
+
+diff_RP/
+├── 0000.vcf  (只在R) #R-only variants
+├── 0001.vcf  (只在P)
+├── 0002.vcf  (兩邊都有，以P為主)
+├── 0003.vcf  (兩邊都有，以R為主)
+This file was produced by vcfisec.
+The command line was:   bcftools isec  -p diff_CriR1P CriR1.ann.vcf.gz P.ann.vcf.gz
+
+Using the following file names:
+diff_CriR1P/0000.vcf    for records private to  CriR1.ann.vcf.gz
+diff_CriR1P/0001.vcf    for records private to  P.ann.vcf.gz
+diff_CriR1P/0002.vcf    for records from CriR1.ann.vcf.gz shared by both        CriR1.ann.vcf.gz P.ann.vcf.gz
+diff_CriR1P/0003.vcf    for records from P.ann.vcf.gz shared by both    CriR1.ann.vcf.gz P.ann.vcf.gz
+
+
+#要抓的基因
+GENE="MET|EGFR|KRAS|BRAF|ERBB2|ERBB3|PIK3CA"
+GENE="MET|EGFR|KRAS|BRAF|ERBB2|ERBB3|PIK3CA|AKT1|AKT2|AKT3|ALK|AR|ARAF|CDK4|CDKN2A|CHEK2|CTNNB1|ERBB4|ESR1|FGFR1|FGFR2|FGFR3|FGFR4|FLT3|GNA11|GNAQ|GNAS|HRAS|IDH1|IDH2|KIT|MAP2K1|MAP2K2|MTOR|NRAS|NTRK1|NTRK2|NTRK3|PDGFRA|PTEN|RAF1|RET|ROS1|SMO|TP53|CD274|RSPO2|RSPO3|NRG1|NUTM1"
+CTRLGENE="TP53|POLE|STK11|ROS1|JAK2"
+
+#可跳過
+gunzip CriR1.ann.vcf.gz  #解壓縮 #bgzip CriR1.ann.vcf(壓縮)
+
+grep "##INFO=<ID=ANN" CriR1.ann.vcf
+kairkdml@Chia1Lee:~/ann$ grep "##INFO=<ID=ANN" CriR1.ann.vcf
+##INFO=<ID=ANN,Number=.,Type=String,Description="Functional annotations: 'Allele | Annotation | Annotation_Impact | Gene_Name | Gene_ID | Feature_Type | Feature_ID | Transcript_BioType | Rank | HGVS.c | HGVS.p | cDNA.pos / cDNA.length | CDS.pos / CDS.length | AA.pos / AA.length | Distance | ERRORS / WARNINGS / INFO' ">
+
+#檢查0001.vcf中有哪些基因
+bcftools query -f '%ANN\n' diff_TepR1P/0000.vcf | awk -F'|' '{print $4}' | sort | uniq
+bcftools query -f '%ANN\n' diff_TepR1P/0000.vcf | awk -F'|' '{print $4}' | sort | uniq -c | sort -nr
+bcftools query -f '%ANN\n' diff_TepR1P/0000.vcf | \
+awk -F'|' -v genes="$GENE" '{if($4 ~ genes) print $4}' | sort | uniq
+
+
+#ANN欄位第四格是gene name，抓出要抓的基因
+# 只抓 R-specific 並篩選目標基因
+GENE="MET|EGFR|KRAS|BRAF|ERBB2|ERBB3|PIK3CA"
+
+# 篩選基因，不管 Impact (所有目標基因的R-only變異)
+bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/ANN\n' diff_CriR1P/0000.vcf \
+| awk -F'\t' -v genes="$GENE" '{
+    split($5,a,",");
+    for(i in a){
+        split(a[i],f,"|");
+        gene=f[4]; ann_type=f[2]; impact=f[3]; protein=f[11];
+        if(gene ~ ("^(" genes ")$")){
+            key = $1"-"$2"-"$3"-"$4      # CHROM-POS-REF-ALT 作為 key
+            if(!seen[key]++){
+                print $1"\t"$2"\t"$3"\t"$4"\t"gene"\t"ann_type"\t"impact"\t"protein
+            }
+        }
+    }
+}' > CriR1_specific_genes_all.tsv
+
+# HIGH/MODERATE
+awk -F'\t' '{if($7=="HIGH" || $7=="MODERATE" || $7=="LOW") print $0}' CriR1_specific_genes_all.tsv > CriR1_specific_genes_strong.tsv
+
+#計算variant數量
+bcftools view -H file.vcf \
+| awk '{ key = $1"-"$2"-"$4"-"$5; if(!seen[key]++) count++ } END{print count}'
+
+#想直接算不產生中間檔案紀錄
+bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/ANN\n' diff_CriR1P/0000.vcf \
+| awk -F'\t' -v genes="$GENE" '
+{
+    split($5,a,",");
+    for(i in a){
+        split(a[i],f,"|");
+        if(f[4] ~ ("^(" genes ")$")){
+            key=$1"-"$2"-"$3"-"$4;
+            if(!seen[key]++) count++
+        }
+    }
+}
+END{print count}
+'
+
+No recurrent mutations were detected in MET, EGFR, KRAS, BRAF, ERBB2, ERBB3, or PIK3CA in resistant clones compared with parental cells.
