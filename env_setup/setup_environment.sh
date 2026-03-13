@@ -12,7 +12,7 @@
 echo "🟢 Starting environment setup..."
 
 # =========================
-# 1️⃣ Install WSL2 & Ubuntu (Windows only, first-time)
+# 1️.Install WSL2 & Ubuntu (Windows only, first-time)
 # =========================
 if [ -z "$WSL_INTEROP" ]; then
     echo "💻 Detected Windows environment. Installing WSL2 and Ubuntu (first-time only)..."
@@ -29,7 +29,7 @@ fi
 # Ctrl+C can interrupt current running code
 
 # =========================
-# 2️⃣ Update system & install basic packages (first-time only)
+# 2.Update system & install basic packages (first-time only)
 # =========================
 sudo apt update && sudo apt upgrade -y
 
@@ -45,7 +45,7 @@ sudo apt install -y \
     screen
 
 # =========================
-# 3️⃣ Install GATK (first-time only)
+# 3.Install GATK (first-time only)
 # =========================
 mkdir -p ~/tools
 cd ~/tools
@@ -62,7 +62,7 @@ source ~/.bashrc
 gatk --help
 
 # =========================
-# 4️⃣ Download reference genome (first-time only)
+# 4️.Download reference genome (first-time only)
 # =========================
 if [ ! -f ~/reference/hg38_ensembl/hg38.fa ]; then
     cd ~/reference/hg38_ensembl
@@ -85,7 +85,7 @@ if [ ! -f ~/reference/hg38_ucsc/hg38.fa ]; then
 fi
 
 # ------------------------
-# 5️⃣ Install SnpEff and build GRCh38.113 database  (first-time only)
+# 5️.Install SnpEff and build GRCh38.113 database  (first-time only)
 # ------------------------
 SNPEFF_DIR=~/snpEff
 if [ ! -f "$SNPEFF_DIR/snpEff.jar" ]; then
