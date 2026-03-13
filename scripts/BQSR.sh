@@ -13,15 +13,15 @@
 cd ~/reference
 
 # 1️⃣ (Optional) Download dbSNP build 151
-# wget http://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b151_GRCh38p7/VCF/GATK/00-All.vcf.gz
-# wget http://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b151_GRCh38p7/VCF/GATK/00-All.vcf.gz.tbi
-# bcftools index -f 00-All.vcf.gz
+wget http://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b151_GRCh38p7/VCF/GATK/00-All.vcf.gz
+wget http://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b151_GRCh38p7/VCF/GATK/00-All.vcf.gz.tbi
+bcftools index -f 00-All.vcf.gz
 
 # 2️⃣ Rename chromosomes if needed
-# nano chr_map.txt  # first-time only
-# bcftools annotate --rename-chrs chr_map.txt 00-All.vcf.gz -Oz -o 00-All.chr.vcf.gz
-# bcftools index -f 00-All.chr.vcf.gz
-# tabix -p vcf 00-All.chr.vcf.gz
+nano chr_map.txt  # first-time only
+bcftools annotate --rename-chrs chr_map.txt 00-All.vcf.gz -Oz -o 00-All.chr.vcf.gz
+bcftools index -f 00-All.chr.vcf.gz
+tabix -p vcf 00-All.chr.vcf.gz
 
 # 3️⃣ BaseRecalibrator
 gatk BaseRecalibrator \
