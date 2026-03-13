@@ -10,7 +10,7 @@
 #   - --dont-use-soft-clipped-bases: mandatory for RNA-seq
 # ------------------------------------------------------------
 
-# 1️⃣ (Optional) Install libgomp for GATK acceleration#  (Optional) Download dbSNP build 151
+# 1️⃣ (Optional) Install libgomp for GATK acceleration
 sudo apt update 
 sudo apt install libgomp1
 
