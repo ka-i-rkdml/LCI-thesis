@@ -10,6 +10,9 @@
 #   - --dont-use-soft-clipped-bases: mandatory for RNA-seq
 # ------------------------------------------------------------
 
+# (Optional) Install libgomp for GATK acceleration
+# sudo apt update && sudo apt install libgomp1
+
 # 1️⃣ HaplotypeCaller
 gatk HaplotypeCaller \
     --java-options "-Xmx10g -XX:ParallelGCThreads=8" \
