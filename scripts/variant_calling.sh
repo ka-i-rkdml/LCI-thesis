@@ -10,11 +10,11 @@
 #   - --dont-use-soft-clipped-bases: mandatory for RNA-seq
 # ------------------------------------------------------------
 
-# (Optional) Install libgomp for GATK acceleration
+# 1️⃣ (Optional) Install libgomp for GATK acceleration#  (Optional) Download dbSNP build 151
 sudo apt update 
 sudo apt install libgomp1
 
-# 1️⃣ HaplotypeCaller
+# 2️⃣ HaplotypeCaller
 gatk HaplotypeCaller \
     --java-options "-Xmx10g -XX:ParallelGCThreads=8" \
     -R ~/reference/hg38_ucsc/hg38.fa \
@@ -26,7 +26,7 @@ gatk HaplotypeCaller \
     -ERC GVCF \
     -native-pair-hmm-threads 8
 
-# 2️⃣ Genotype GVCF
+# 3️⃣ Genotype GVCF
 gatk GenotypeGVCFs \
     --java-options "-Xmx8g -XX:ParallelGCThreads=6" \
     -R ~/reference/hg38_ucsc/hg38.fa \
