@@ -1,48 +1,35 @@
 # LCI-thesis: RNA-seq Variant Analysis Pipeline
 
 ## Overview
-This repository contains scripts and workflows for RNA-seq variant calling, filtering, annotation, and resistant vs parental comparison.  
-The pipeline is based on GATK 4.2.6.0 and SnpEff 4.3t.
+This repository contains scripts and workflows for RNA-seq variant calling, filtering, annotation, and resistant vs parental comparison.
+
+## Workflow
+BAM file → preprocessing → variant calling → filtering → annotatio
+
+## Requirements
+- OS: WSL2 / Ubuntu XX
+- Tools:
+  - GATK 4.2
+  - samtools
+  - bcftools
+  - SnpEff
+- Java version > 11
+
+## Installation
+Step-by-step environment setup
 
 ## Usage
-
-```bash run_pipeline.sh SAMPLE input.bam```
-
-## Repository Structure
-- preprocess → sort + mark duplicates
-- BQSR → recalibration
-- variant calling → HaplotypeCaller
-- filtering → bcftools
-- annotation → SnpEff
+Step-by-step commands
 
 ## Notes
-- Reference genome and dbSNP must be prepared separately
-
-## Configuration
-
-All customizable parameters are stored in: config/config.sh
-
-You can modify:
-- reference genome path
-- known sites (dbSNP)
-- output directory
-
-## Usage Notes/Optimization
-- Recommended to run in WSL2 Ubuntu or Linux environment
-- Requires Java >= 11 for GATK and SnpEff
-- Adjust memory (-Xmx) according to available RAM
-- Entry scripts assume input files are under ~/variants and ~/ann
+- RNA-seq specific considerations
+- Known limitations
 
 ## License
 
 MIT License. See `LICENSE` for details.
 
-## Reproducibility
-
-All commands and parameters used in the analysis are documented in the provided scripts.
-
 ## Citation
-
-If you use this code, please cite:
+If used in publicationㄝplease cite:
 
 Lee, C.-I. (2026). *LCI-thesis*. GitHub repository.
