@@ -1,5 +1,9 @@
 #Platform: WSL&Ubuntu https://bayareanotes.com/wsl-installation/
 
+########################################
+# 0. Environment Setup (WSL2 / RAM / tmux)
+########################################
+
 #調整WSL主機使用RAM
 #在powershell
 notepad $env:USERPROFILE\.wslconfig
@@ -131,7 +135,9 @@ wsl -d Ubuntu                 # 進入 Ubuntu
 
 
 
-
+########################################
+# 1. System Preparation & Dependencies
+########################################
 
 #2️⃣ Linux 系統與套件更新 (第二次後可跳過)
 
@@ -159,6 +165,9 @@ gatk --help                                #出現GATK的幫助資訊為成功
 
 
 
+########################################
+# 2. Reference Genome Setup
+########################################
 
 #4️⃣ 下載參考基因組 (第二次後可跳過)
 
@@ -208,7 +217,9 @@ samtools view -H ~/3_HNH3FDSX5_L4_dedup.bam | grep "^@SQ" | head
 
 
 
-
+########################################
+# 3. BAM Preprocessing
+########################################
 #5️⃣ BAM 檔前處理 (第二次開始從這裡開始~)
 
 #已有材料 Partek裡的STAR完的BAM&BAI, reference genome fasta
@@ -264,6 +275,9 @@ samtools sort -@ 4 -m 2G --write-index -o 3_HNH3FDSX5_L4_split.sorted.bam 3_HNH3
 
 
 
+########################################
+# 4. Variant Calling Pipeline (GATK)
+########################################
 #6️⃣ BQSR（Base Quality Score Recalibration）
 
 #下載dbSNP known sites (UCSC/chr ver., hg38) (第二次之後可跳過)
@@ -369,7 +383,9 @@ gatk --java-options "-Xmx8g -XX:ParallelGCThreads=6" GenotypeGVCFs \
 
 
 
-
+########################################
+# 5. Variant Filtering
+########################################
 #8️⃣ Variant Filtering
 
 #確認vcf有的欄位
@@ -477,6 +493,11 @@ bcftools query -f '%CHROM\t%POS\t%MLEAF\n' $OUTDIR/filtered.final.vcf.gz | head
 #MLEAF 過濾整合在一次 bcftools 命令，簡化流程。
 #支援多 ALT allele，可輕鬆改 [0] [1] [2] ... 或改 || 條件。
 
+
+
+########################################
+# 6. Annotation (SnpEff) + Downstream Analysis
+########################################
 #Annotation 
 # ===============================
 # Annotation with SnpEff
