@@ -29,7 +29,7 @@ preprocess_bam() {
     gatk AddOrReplaceReadGroups \
         -I $OUTDIR/${SAMPLE}.sort.bam \
         -O $OUTDIR/${SAMPLE}.rg.bam \
-        -RGID $SAMPLE -RGLB lib1 -RGPL ILLUMINA -RGPU unit1 -RGSM $SAMPLE
+        -RGID $BAM -RGLB H1993_lib1 -RGPL ILLUMINA -RGPU $BAM -RGSM $SAMPLE
 
     gatk MarkDuplicates \
         -I $OUTDIR/${SAMPLE}.rg.bam \
