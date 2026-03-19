@@ -1,16 +1,18 @@
-run_bam_processing <- function(input_bam, output_bam, threads = 8) {
-  
-  # Example: sorting
-  sort_cmd <- paste(
-    "samtools sort",
-    "-@", threads,
-    "-o", output_bam,
-    input_bam
-  )
-  
-  system(sort_cmd)
-  
-  # indexing
-  index_cmd <- paste("samtools index", output_bam)
-  system(index_cmd)
-}
+source("../config/paths.R")
+source("../utils/helpers.R")
+
+cmd_sort <- build_cmd("samtools sort", c(
+  "-@ 4",
+  "-m 2G",
+  "-o sorted.bam",
+  INPUT_BAM
+))
+
+cmd_rg <- build_cmd("gatk AddOrReplaceReadGroups", c(
+  "-I sorted.bam",
+  "-O rg.bam",
+  "-RGSM sample"
+))
+
+print(cmd_sort)
+print(cmd_rg)
