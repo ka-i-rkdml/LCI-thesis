@@ -2,39 +2,32 @@
 
 ## Overview
 This repository contains scripts and workflows for RNA-seq variant calling, filtering, annotation, and resistant vs parental comparison.  
-The pipeline is based on GATK 4 + SnpEff 4.3+.
+The pipeline is based on GATK 4.2.6.0 and SnpEff 4.3t.
+
+## Usage
+
+```bash run_pipeline.sh SAMPLE input.bam```
 
 ## Repository Structure
-env_setup/ # Setup software & environment  
-preprocessing/ # BAM/FASTQ preprocessing  
-variant_calling/ # Variant calling and filtering  
-annotation/ # snpEff annotation  
-comparison/ # Resistant vs Parental comparison  
-scripts/ # Utility scripts  
-docs/ # Flowcharts, figures, notes  
+- preprocess → sort + mark duplicates
+- BQSR → recalibration
+- variant calling → HaplotypeCaller
+- filtering → bcftools
+- annotation → SnpEff
 
-## Pipeline Workflow
+## Notes
+- Reference genome and dbSNP must be prepared separately
 
-1. **Setup Environment**
-</>Bash
-bash env_setup/install_tools.sh
+## Configuration
 
-2. **Preprocessing BAM/FASTQ**
-bash preprocessing/preprocess_all.sh
+All customizable parameters are stored in: config/config.sh
 
-3. **Variant Calling & Filtering**
-</>Bash
-bash variant_calling/run_variant_calling.sh
+You can modify:
+- reference genome path
+- known sites (dbSNP)
+- output directory
 
-4. **Annotation with SnpEff**
-</>Bash
-bash annotation/run_annotation.sh
-
-5. **Resistant vs Parental Comparison**
-</>Bash
-bash comparison/run_comparison.sh
-
-## Usage Notes
+## Usage Notes/Optimization
 - Recommended to run in WSL2 Ubuntu or Linux environment
 - Requires Java >= 11 for GATK and SnpEff
 - Adjust memory (-Xmx) according to available RAM
