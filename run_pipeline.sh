@@ -8,30 +8,30 @@ set -e  # 有錯直接停
 # ===== 參數區 =====
 SAMPLE=$1
 BAM=$2
-
-THREADS=8
-MEM=10g
+CODE=$3
 
 REF=~/reference/hg38_ucsc/hg38.fa
 DBSNP=~/reference/00-All.chr.vcf.gz
 
-OUTDIR=~/results/$SAMPLE
-mkdir -p $OUTDIR
+OUTDIR=~/
 
 # ===== function 區 =====
 preprocess_bam() {
     echo "=== Preprocessing BAM ==="
 
-    samtools sort -@ $THREADS -m 2G \
+    samtools sort -@ 4 -m 2G \
+        -T /tmp/${CODE}_sort \
+        --write-index 
         -o $OUTDIR/${SAMPLE}.sort.bam \
         $BAM
 
     gatk AddOrReplaceReadGroups \
         -I $OUTDIR/${SAMPLE}.sort.bam \
         -O $OUTDIR/${SAMPLE}.rg.bam \
-        -RGID $BAM -RGLB H1993_lib1 -RGPL ILLUMINA -RGPU $BAM -RGSM $SAMPLE
+        -RGID $CODE -RGLB H1993_lib1 -RGPL ILLUMINA -RGPU $CODE -RGSM $SAMPLE
 
     gatk MarkDuplicates \
+        --java-options "-Xmx8g -XX:ParallelGCThreads=4" \
         -I $OUTDIR/${SAMPLE}.rg.bam \
         -O $OUTDIR/${SAMPLE}.dedup.bam \
         -M $OUTDIR/${SAMPLE}_metrics.txt
@@ -43,11 +43,13 @@ split_bam() {
     echo "=== SplitNCigarReads ==="
 
     gatk SplitNCigarReads \
+        --java-options "-Xmx6g -XX:ParallelGCThreads=3" \
         -R $REF \
         -I $OUTDIR/${SAMPLE}.dedup.bam \
         -O $OUTDIR/${SAMPLE}.split.bam
 
-    samtools sort -@ $THREADS \
+    samtools sort -@ 4 -m 2G \
+        --write-index \
         -o $OUTDIR/${SAMPLE}.split.sorted.bam \
         $OUTDIR/${SAMPLE}.split.bam
 
