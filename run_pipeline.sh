@@ -40,7 +40,6 @@ preprocess_bam() {
         -RGID $CODE -RGLB H1993_lib1 -RGPL ILLUMINA -RGPU $CODE -RGSM $SAMPLE
 
     gatk MarkDuplicates \
-        --java-options "-Xmx8g -XX:ParallelGCThreads=4" \
         -I $OUTDIR/${SAMPLE}.rg.bam \
         -O $OUTDIR/${SAMPLE}.dedup.bam \
         -M $OUTDIR/${SAMPLE}_metrics.txt
@@ -57,7 +56,6 @@ split_bam() {
     fi
 
     gatk SplitNCigarReads \
-        --java-options "-Xmx6g -XX:ParallelGCThreads=3" \
         -R $REF \
         -I $OUTDIR/${SAMPLE}.dedup.bam \
         -O $OUTDIR/${SAMPLE}.split.bam
