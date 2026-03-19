@@ -1,10 +1,12 @@
-REF <- "~/reference/hg38_ucsc/hg38.fa"
-INPUT_BAM <- "~/3_HNH3FDSX5_L4_BQSR.bam"
-OUTDIR <- "~/results"
+# ===== Reference =====
+REF=~/reference/hg38_ucsc/hg38.fa
+DBSNP=~/reference/00-All.chr.vcf.gz
 
-GATK <- "gatk"
-SAMTOOLS <- "samtools"
-BCFTOOLS <- "bcftools"
+# ===== Resource =====
+THREADS=4
+MEMORY=8g
 
-MEM <- "10g"
-THREADS <- 8
+# ===== Output =====
+OUTDIR=~/results
+
+mkdir -p $OUTDIR
