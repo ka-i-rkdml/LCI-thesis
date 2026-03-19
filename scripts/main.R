@@ -1,7 +1,4 @@
-source("config.R")
-source("modules/alignment.R")
-source("modules/variant_calling.R")
-
-run_alignment("sample.fastq", "sample.bam", ref_genome)
-
-run_variant_calling("sample.bam", "sample.vcf")
+source("scripts/01_preprocess.R")
+source("scripts/02_variant_calling.R")
+source("scripts/03_filtering.R")
+source("scripts/04_annotation.R")
