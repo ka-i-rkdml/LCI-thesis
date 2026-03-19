@@ -1,3 +1,14 @@
+# ==================================================
+# RNA-seq Based Variant Calling Pipeline
+# Author: Chia-I Lee
+# Description: 
+# This script performs variant calling from RNA-seq BAM files
+# using GATK best practices.
+# ==================================================
+
+# Usage:
+# bash script.sh SAMPLE BAM CODE
+
 #Platform: WSL&Ubuntu https://bayareanotes.com/wsl-installation/
 
 ########################################
