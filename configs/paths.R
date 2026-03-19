@@ -1,7 +1,10 @@
-threads <- 8
-memory <- "6G"
+REF <- "~/reference/hg38_ucsc/hg38.fa"
+INPUT_BAM <- "~/3_HNH3FDSX5_L4_BQSR.bam"
+OUTDIR <- "~/results"
 
-ref_genome <- "hg38.fa"
+GATK <- "gatk"
+SAMTOOLS <- "samtools"
+BCFTOOLS <- "bcftools"
 
-input_dir <- "data/"
-output_dir <- "results/"
+MEM <- "10g"
+THREADS <- 8
