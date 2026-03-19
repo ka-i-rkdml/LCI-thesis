@@ -25,6 +25,14 @@ Step-by-step commands
 - RNA-seq specific considerations
 - Known limitations
 
+## Reference Genome Strategy
+
+Two versions of hg38 were used:
+- Ensembl primary assembly (no "chr" prefix)
+- UCSC hg38 (with "chr" prefix)
+
+A chromosome name mapping step was performed using bcftools annotate to ensure compatibility between BAM and known-sites VCF.
+
 ## License
 
 MIT License. See `LICENSE` for details.
