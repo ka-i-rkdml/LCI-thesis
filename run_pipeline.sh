@@ -1,9 +1,12 @@
 #!/bin/bash
 
-set -e  # 有錯直接停
+set -e
 
-# ===== 使用方式 =====
-# bash run_pipeline.sh SAMPLE BAM
+# ===== 檢查參數 =====
+if [ $# -lt 3 ]; then
+    echo "Usage: bash run_pipeline.sh SAMPLE BAM CODE"
+    exit 1
+fi
 
 # ===== 參數區 =====
 SAMPLE=$1
@@ -13,15 +16,21 @@ CODE=$3
 REF=~/reference/hg38_ucsc/hg38.fa
 DBSNP=~/reference/00-All.chr.vcf.gz
 
-OUTDIR=~/
+OUTDIR=~/results/${SAMPLE}
+mkdir -p $OUTDIR
 
 # ===== function 區 =====
 preprocess_bam() {
     echo "=== Preprocessing BAM ==="
 
+    if [ -f "$OUTDIR/${SAMPLE}.dedup.bam" ]; then
+        echo "skip preprocess"
+        return
+    fi
+
     samtools sort -@ 4 -m 2G \
         -T /tmp/${CODE}_sort \
-        --write-index 
+        --write-index \
         -o $OUTDIR/${SAMPLE}.sort.bam \
         $BAM
 
@@ -42,6 +51,11 @@ preprocess_bam() {
 split_bam() {
     echo "=== SplitNCigarReads ==="
 
+    if [ -f "$OUTDIR/${SAMPLE}.split.sorted.bam" ]; then
+        echo "skip split"
+        return
+    fi
+
     gatk SplitNCigarReads \
         --java-options "-Xmx6g -XX:ParallelGCThreads=3" \
         -R $REF \
@@ -52,12 +66,15 @@ split_bam() {
         --write-index \
         -o $OUTDIR/${SAMPLE}.split.sorted.bam \
         $OUTDIR/${SAMPLE}.split.bam
-
-    samtools index $OUTDIR/${SAMPLE}.split.sorted.bam
 }
 
 bqsr() {
     echo "=== BQSR ==="
+
+    if [ -f "$OUTDIR/${SAMPLE}.BQSR.bam" ]; then
+        echo "skip BQSR"
+        return
+    fi
 
     gatk BaseRecalibrator \
         -R $REF \
@@ -76,6 +93,11 @@ bqsr() {
 
 call_variants() {
     echo "=== HaplotypeCaller ==="
+
+    if [ -f "$OUTDIR/${SAMPLE}.g.vcf.gz" ]; then
+        echo "skip variant calling"
+        return
+    fi
 
     gatk HaplotypeCaller \
         -R $REF \
